@@ -23,14 +23,12 @@ import           Data.Aeson hiding (Result)
 import           Data.List (find, intercalate)
 import           Data.Text (Text)
 import qualified Data.Text
-import           Data.Bifunctor
-import qualified Data.ByteString
 import qualified Data.ByteString.Char8
 import           Data.Scientific
 import           Data.Typeable
 import qualified Data.HashMap.Strict as M
 import           GHC.Generics
-import           Network.HTTP
+import           Network.HTTP hiding (host)
 import           Network.Stream
 
 data RQResult a = RQResult {
@@ -74,6 +72,7 @@ postQueries redirect host queries = do
             , intercalate "," (fmap (\str -> concat [" \"", str, "\"  "]) queries)
             , "]"
             ]
+        go :: Int -> String -> [Response String] -> IO [PostResult]
         go 5 _ acc = throwIO $ MaxNumberOfRedirections $ reverse acc
         go n req acc = do
             mResp <- post req body
@@ -85,11 +84,13 @@ postQueries redirect host queries = do
                             ["Posted ", show (length queries), " queries, but got ", show (length postResults), " results"]
                     else return postResults
                 Left resp ->
-                    case find isLocation (rspHeaders resp) of
+                    if redirect
+                    then case find isLocation (rspHeaders resp) of
                         Nothing            -> throwIO $ FailedRedirection resp
                         Just (Header _ q') -> do
                             putStrLn $ "Warning: Redirected to " ++ q'
                             go (n + 1) q' (resp : acc)
+                    else throwIO $ HttpRedirect resp
     go 0 (mkPostRequest host) []
 
 mkPostRequest :: String -> String
@@ -140,9 +141,10 @@ mkQuery host level q = concat
         ]
 
 -- | This can be used to query a table.
-getQuery :: FromJSON a => Maybe Level -> String -> Bool -> String -> IO (GetResult a)
+getQuery :: forall a. FromJSON a => Maybe Level -> String -> Bool -> String -> IO (GetResult a)
 getQuery level host redirect q = go 0 (mkQuery host level q) []
     where
+        go :: Int -> String -> [Response String] -> IO (GetResult a)
         go 5 _ acc = throwIO $ MaxNumberOfRedirections $ reverse acc
         go n query acc = do
             let http = simpleHTTP $ getRequest query
@@ -199,13 +201,13 @@ reifyHTTPErrorsRed action = do
 
 reifyHTTPErrors :: IO (Response String) -> IO String
 reifyHTTPErrors action = do
-    resp <- reifyHTTPErrorsRed action
-    case resp of
+    mresp <- reifyHTTPErrorsRed action
+    case mresp of
         Left resp -> throwIO $ HttpRedirect resp
         Right str -> return str
 
--- Another possible exception is IOError {ioe_type == NoSuchThing}
--- Should we wrap also this?
+-- Another possible exception is IOError {ioe_type == NoSuchThing} when a node is not found
+-- Should we wrap also this? 
 data RQliteError =
       UnexpectedResponse String
     | StreamError ConnError
@@ -214,8 +216,6 @@ data RQliteError =
                      -- since RQlite is a distributed db, redirections to the leader
                      -- deserve a different constructor, even though technically it
                      -- is just another http error code.
-                     -- We may need to provide options to the user and make the redirection
-                     -- ourselves.
     | MaxNumberOfRedirections [Response String]
     | FailedRedirection (Response String)
     deriving (Show, Typeable, Exception)
