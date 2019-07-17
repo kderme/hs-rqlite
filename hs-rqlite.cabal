@@ -2,8 +2,8 @@ cabal-version:       2.2
 name:                hs-rqlite
 version:             0.1.0.0
 synopsis:            A Haskell client for RQlite
--- description:
--- bug-reports:
+description:         See README at <https://github.com/kderme/hs-rqlite/blob/master/README.md>
+bug-reports:         https://github.com/kderme/hs-rqlite/issues
 license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Konstantinos Dermentzis <k.dermenz@gmail.com>
