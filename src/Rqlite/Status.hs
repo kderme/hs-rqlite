@@ -11,17 +11,12 @@ module Rqlite.Status
     ) where
 
 import           Control.Concurrent (threadDelay)
-import           Control.Arrow
 import           Control.Exception
 import           Data.Aeson hiding (Result)
 import qualified Data.ByteString.Char8 as C8
-import qualified Data.HashMap.Strict as M
-import           Data.Scientific
-import qualified Data.Text hiding (break, tail)
 import           GHC.Generics
 import           GHC.IO.Exception
-import           Network.HTTP
-import           Network.Stream
+import           Network.HTTP hiding (host)
 
 import           Rqlite
 
@@ -62,16 +57,16 @@ instance FromJSON RQStatus where
         Object o <- parseJSON j
         Object store <- o .: "store"
         pth <- store .: "dir"
-        leader <- store .: "leader"
-        let mLeader = if leader == "" then Nothing else Just leader
-        peers :: [String] <- store .: "peers"
+        ldr <- store .: "leader"
+        let mLeader = if ldr == "" then Nothing else Just ldr
+        prs :: [String] <- store .: "peers"
         sqliteInfo <- store .: "sqlite3"
         raft <- store .: "raft"
-        st <- raft .: "state"
-        let state = readState st
+        stStr <- raft .: "state"
+        let st = readState stStr
         fk' :: String <- sqliteInfo .: "fk_constraints"
         let fk = fk' /= "disabled"
-        return $ RQStatus pth mLeader peers state fk
+        return $ RQStatus pth mLeader prs st fk
 
 getLeader :: String -> IO (Maybe String)
 getLeader host = do
@@ -82,6 +77,7 @@ getLeader host = do
 retryUntilAlive :: String -> IO Bool
 retryUntilAlive host = go 15
     where
+        go :: Int -> IO Bool
         go 0 = do
             putStrLn $ "Warning: Failed to get Status from " ++ host
             return False
@@ -93,3 +89,4 @@ retryUntilAlive host = go 15
                     putStrLn $ "Warning: Got " ++ show e ++ " while trying to get Status from " ++ host ++ ". Trying again.."
                     threadDelay 1000000
                     go $ n-1
+                Left e -> throwIO e
