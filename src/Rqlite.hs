@@ -28,6 +28,7 @@ import           Data.Scientific
 import           Data.Typeable
 import qualified Data.HashMap.Strict as M
 import           GHC.Generics
+import           GHC.IO.Exception
 import           Network.HTTP hiding (host)
 import           Network.Stream
 
@@ -177,11 +178,11 @@ encodeLevel (Just Strong) = "level=strong&"
 -- Exeptions handling
 
 reify ::IO (Result (Response String)) -> IO String
-reify = reifyHTTPErrors . reifyStreamErrors
+reify = reifyHTTPErrors . reifyStreamErrors . reifyNoSuchThing
 
 -- | Like reify, but returns Left for Redirect errors, instead of throwing them.
 reifyRed :: IO (Result (Response String)) -> IO (Either (Response String) String)
-reifyRed = reifyHTTPErrorsRed . reifyStreamErrors
+reifyRed = reifyHTTPErrorsRed . reifyStreamErrors . reifyNoSuchThing
 
 reifyStreamErrors :: IO (Result a) -> IO a
 reifyStreamErrors action = do
@@ -206,10 +207,17 @@ reifyHTTPErrors action = do
         Left resp -> throwIO $ HttpRedirect resp
         Right str -> return str
 
--- Another possible exception is IOError {ioe_type == NoSuchThing} when a node is not found
--- Should we wrap also this? 
+reifyNoSuchThing :: IO a -> IO a
+reifyNoSuchThing action = do
+    a <- try action
+    case a of
+        Right a' -> return a'
+        Left (e :: IOError) | ioe_type e == NoSuchThing -> throwIO $ NodeUnreachable e 1
+        Left e -> throwIO e
+
 data RQliteError =
       UnexpectedResponse String
+    | NodeUnreachable IOError Int -- Int here indicates number of trials we did.
     | StreamError ConnError
     | HttpError (Response String) -- Does the user really need the whole response here?
     | HttpRedirect (Response String)

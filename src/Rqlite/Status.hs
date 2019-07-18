@@ -15,7 +15,6 @@ import           Control.Exception
 import           Data.Aeson hiding (Result)
 import qualified Data.ByteString.Char8 as C8
 import           GHC.Generics
-import           GHC.IO.Exception
 import           Network.HTTP hiding (host)
 
 import           Rqlite
@@ -74,19 +73,17 @@ getLeader host = do
     return $ leader mstatus
 
 -- | This can be used to make sure that a node is alive, before starting to query it.
-retryUntilAlive :: String -> IO Bool
-retryUntilAlive host = go 15
+retryUntilAlive :: String -> IO ()
+retryUntilAlive host = go 20
     where
-        go :: Int -> IO Bool
-        go 0 = do
-            putStrLn $ "Warning: Failed to get Status from " ++ host
-            return False
+        go :: Int -> IO ()
         go n = do
             mStatus <- try $ queryStatus host
             case mStatus of
-                Right _ -> return True
-                Left (e :: IOError) | ioe_type e == NoSuchThing -> do
+                Right _ -> return ()
+                Left (NodeUnreachable e _) -> do
                     putStrLn $ "Warning: Got " ++ show e ++ " while trying to get Status from " ++ host ++ ". Trying again.."
-                    threadDelay 1000000
-                    go $ n-1
+                    threadDelay 500000
+                    if n > 0 then go $ n - 1
+                    else throwIO $ NodeUnreachable e 20
                 Left e -> throwIO e
