@@ -22,8 +22,8 @@ import           Control.Exception
 import           Data.Aeson hiding (Result)
 import           Data.List (find, intercalate)
 import           Data.Text (Text)
-import qualified Data.Text
-import qualified Data.ByteString.Char8
+import qualified Data.Text as Text
+import qualified Data.ByteString.Char8 as Char8
 import           Data.Scientific
 import           Data.Typeable
 import qualified Data.HashMap.Strict as M
@@ -32,9 +32,22 @@ import           GHC.IO.Exception
 import           Network.HTTP hiding (host)
 import           Network.Stream
 
-data RQResult a = RQResult {
-    results :: [a]
-    } deriving (Show, Read, Generic, ToJSON, FromJSON)
+data RQResult a =
+      RQResults { results :: [a]}
+    | RQLeaderError Text
+    deriving (Show, Read, Generic)
+
+instance FromJSON a => FromJSON (RQResult a) where
+    parseJSON j = do
+        Object o <- parseJSON j
+        case M.toList (o :: Object) of
+            [("results", x)] -> do
+                ls <- parseJSON x
+                return $ RQResults ls
+            [("error", String err)] | Text.isPrefixOf "leadership lost"  err ->
+                return $ RQLeaderError err
+            _ -> throw $ UnexpectedResponse $ concat
+                ["Failed to decode ", show j]
 
 -- Post Requests --
 
@@ -103,10 +116,11 @@ postQuery redirect host body = head <$>
     postQueries redirect host [body]
 
 getLastInsertId :: String -> [PostResult]
-getLastInsertId str = case eitherDecodeStrict $ Data.ByteString.Char8.pack $ str of
+getLastInsertId str = case eitherDecodeStrict $ Char8.pack $ str of
         Left e -> throw $ UnexpectedResponse $ concat
             ["Got ", e, " while trying to decode ", str, " as PostResult"]
-        Right (a :: (RQResult PostResult)) -> results a
+        Right (RQResults res)     -> res
+        Right (RQLeaderError err) -> throw $ LeadershipLost err
 
 -- Get Requests --
 
@@ -127,7 +141,7 @@ instance FromJSON a => FromJSON (GetResult a) where
             [("types", _), ("columns", _)] ->
                 return $ GetResult [] -- when there is no element
             [("error", String str)] ->
-                return $ GetError $ Data.Text.unpack str
+                return $ GetError $ Text.unpack str
             _ -> throw $ UnexpectedResponse $ concat
                 ["Failed to decode ", show j, " as GetResult"]
 
@@ -154,10 +168,11 @@ getQuery level host redirect q = go 0 (mkQuery host level q) []
                 else Right <$> reify http
             case mResp of
                 Right respBody ->
-                    case eitherDecodeStrict $ Data.ByteString.Char8.pack respBody of
+                    case eitherDecodeStrict $ Char8.pack respBody of
                     Left e -> throwIO $ UnexpectedResponse $ concat
                         ["Got ", e, " while trying to decode ", respBody, " as GetResult"]
-                    Right (a :: RQResult (GetResult a)) -> return $ head $ results a
+                    Right (RQResults res)     -> return $ head $ res
+                    Right (RQLeaderError err) -> throwIO $ LeadershipLost err
                 Left resp -> do
                     case find isLocation (rspHeaders resp) of
                         Nothing            -> throwIO $ FailedRedirection resp
@@ -216,8 +231,7 @@ reifyNoSuchThing action = do
         Left e -> throwIO e
 
 data RQliteError =
-      UnexpectedResponse String
-    | NodeUnreachable IOError Int -- Int here indicates number of trials we did.
+      NodeUnreachable IOError Int -- Int here indicates number of trials we did.
     | StreamError ConnError
     | HttpError (Response String) -- Does the user really need the whole response here?
     | HttpRedirect (Response String)
@@ -226,4 +240,6 @@ data RQliteError =
                      -- is just another http error code.
     | MaxNumberOfRedirections [Response String]
     | FailedRedirection (Response String)
+    | LeadershipLost Text
+    | UnexpectedResponse String
     deriving (Show, Typeable, Exception)
