@@ -74,7 +74,7 @@ getLeader host = do
 
 -- | This can be used to make sure that a node is alive, before starting to query it.
 retryUntilAlive :: String -> IO ()
-retryUntilAlive host = go 20
+retryUntilAlive host = go 40
     where
         go :: Int -> IO ()
         go n = do
@@ -85,5 +85,5 @@ retryUntilAlive host = go 20
                     putStrLn $ "Warning: Got " ++ show e ++ " while trying to get Status from " ++ host ++ ". Trying again.."
                     threadDelay 500000
                     if n > 0 then go $ n - 1
-                    else throwIO $ NodeUnreachable e 20
+                    else throwIO $ NodeUnreachable e 40
                 Left e -> throwIO e
