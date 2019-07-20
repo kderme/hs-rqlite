@@ -82,7 +82,6 @@ retryUntilAlive host = go 40
             case mStatus of
                 Right _ -> return ()
                 Left (NodeUnreachable e _) -> do
-                    putStrLn $ "Warning: Got " ++ show e ++ " while trying to get Status from " ++ host ++ ". Trying again.."
                     threadDelay 500000
                     if n > 0 then go $ n - 1
                     else throwIO $ NodeUnreachable e 40

@@ -102,7 +102,7 @@ postQueries redirect host queries = do
                     then case find isLocation (rspHeaders resp) of
                         Nothing            -> throwIO $ FailedRedirection resp
                         Just (Header _ q') -> do
-                            putStrLn $ "Warning: Redirected to " ++ q'
+                            putStrLn $ "Rqlite Warning: Redirected to " ++ q'
                             go (n + 1) q' (resp : acc)
                     else throwIO $ HttpRedirect resp
     go 0 (mkPostRequest host) []
@@ -177,7 +177,7 @@ getQuery level host redirect q = go 0 (mkQuery host level q) []
                     case find isLocation (rspHeaders resp) of
                         Nothing            -> throwIO $ FailedRedirection resp
                         Just (Header _ q') -> do
-                            putStrLn $ "Warning: Redirected to " ++ q'
+                            putStrLn $ "Rqlite Warning: Redirected to " ++ q'
                             go (n + 1) q' (resp : acc)
 
 isLocation :: Header -> Bool
