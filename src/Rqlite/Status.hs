@@ -14,6 +14,7 @@ import           Control.Concurrent (threadDelay)
 import           Control.Exception
 import           Data.Aeson hiding (Result)
 import qualified Data.ByteString.Char8 as C8
+import qualified Data.HashMap.Strict as M
 import           GHC.Generics
 import           Network.HTTP hiding (host)
 
@@ -58,7 +59,13 @@ instance FromJSON RQStatus where
         pth <- store .: "dir"
         ldr <- store .: "leader"
         let mLeader = if ldr == "" then Nothing else Just ldr
-        prs :: [String] <- store .: "peers"
+        prs :: [String] <- case M.lookup "peers" store of
+            Just Null -> throw $ UnexpectedResponse $ concat
+                [ "peers were empty while querying status! This probably indicates that the node path "
+                , pth
+                , " does not exist or the peers file was deleted"
+                ]
+            _    -> store .: "peers"
         sqliteInfo <- store .: "sqlite3"
         raft <- store .: "raft"
         stStr <- raft .: "state"
