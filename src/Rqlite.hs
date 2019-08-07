@@ -73,7 +73,7 @@ instance FromJSON PostResult where
                     ["Failed to decode ", show j, " as PostResult"]
 
 post :: String -> String -> IO (Either (Response String) String)
-post request body = do
+post request body =
     reifyRed $ simpleHTTP $ postRequestWithBody
         request
         "application/json"
@@ -171,9 +171,9 @@ getQuery level host redirect q = go 0 (mkQuery host level q) []
                     case eitherDecodeStrict $ Char8.pack respBody of
                     Left e -> throwIO $ UnexpectedResponse $ concat
                         ["Got ", e, " while trying to decode ", respBody, " as GetResult"]
-                    Right (RQResults res)     -> return $ head $ res
+                    Right (RQResults res)     -> return $ head res
                     Right (RQLeaderError err) -> throwIO $ LeadershipLost err
-                Left resp -> do
+                Left resp ->
                     case find isLocation (rspHeaders resp) of
                         Nothing            -> throwIO $ FailedRedirection resp
                         Just (Header _ q') -> do
@@ -213,7 +213,7 @@ reifyHTTPErrorsRed action = do
     case rspCode resp of
         (2,0,0) -> return $ Right $ rspBody resp
         (3,_,_) -> return $ Left resp
-        _       -> throwIO $ HttpError $ resp
+        _       -> throwIO $ HttpError resp
 
 reifyHTTPErrors :: IO (Response String) -> IO String
 reifyHTTPErrors action = do

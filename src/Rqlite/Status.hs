@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -30,18 +29,19 @@ queryStatus host = do
             , host
             , "/status?pretty"
             ]
-    case eitherDecodeStrict $ C8.pack $ resp of
+    case eitherDecodeStrict $ C8.pack resp of
             Left e -> throwIO $ UnexpectedResponse $ concat
                 ["Got ", e, " while trying to decode ", resp, " as PostResult"]
             Right st -> return st
 
-data RQState = Leader | Follower | UnknownState
+data RQState = Leader | Follower | Candidate | UnknownState
     deriving (Show, Eq, Generic)
 
 readState :: String -> RQState
-readState "Leader"   = Leader
-readState "Follower" = Follower
-readState _          = UnknownState
+readState "Leader"    = Leader
+readState "Follower"  = Follower
+readState "Candidate" = error "Candidate is real"
+readState _           = UnknownState
 
 -- | A subset of the status that a node reports.
 data RQStatus = RQStatus {
