@@ -213,6 +213,7 @@ reifyHTTPErrorsRed action = do
     case rspCode resp of
         (2,0,0) -> return $ Right $ rspBody resp
         (3,_,_) -> return $ Left resp
+        (5,0,3) | Text.isPrefixOf "not leader"  (Text.pack $ rspBody resp) -> throwIO NotLeader
         _       -> throwIO $ HttpError resp
 
 reifyHTTPErrors :: IO (Response String) -> IO String
@@ -241,5 +242,6 @@ data RQliteError =
     | MaxNumberOfRedirections [Response String]
     | FailedRedirection (Response String)
     | LeadershipLost Text
+    | NotLeader
     | UnexpectedResponse String
     deriving (Show, Typeable, Exception)
