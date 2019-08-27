@@ -1,6 +1,5 @@
 {-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -175,7 +174,7 @@ getQuery level host redirect q = go 0 (mkQuery host level q) []
                 Left resp ->
                     case find isLocation (rspHeaders resp) of
                         Nothing            -> throwIO $ FailedRedirection resp
-                        Just (Header _ q') -> do
+                        Just (Header _ q') ->
                             go (n + 1) q' (resp : acc)
 
 isLocation :: Header -> Bool
