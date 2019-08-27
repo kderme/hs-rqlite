@@ -1,16 +1,17 @@
-cabal-version:       2.2
+cabal-version:       >=1.10
 name:                hs-rqlite
-version:             0.1.1.0
+version:             0.1.1.1
 synopsis:            A Haskell client for RQlite
 description:         See README at <https://github.com/kderme/hs-rqlite/blob/master/README.md>
 bug-reports:         https://github.com/kderme/hs-rqlite/issues
-license:             BSD-3-Clause
+license:             BSD3
 license-file:        LICENSE
 author:              Konstantinos Dermentzis <k.dermenz@gmail.com>
 maintainer:          Konstantinos Dermentzis <k.dermenz@gmail.com>
 copyright:           Konstantinos Dermentzis <k.dermenz@gmail.com>
 category:            Database
 extra-source-files:  CHANGELOG.md
+build-type:          Simple
 
 library
   hs-source-dirs:      src
